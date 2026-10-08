@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+*.log
+
+# Downloaded files & temporary downloads
+download/
+downloads/
+*.mp4
+*.mkv
+*.webm
+*.part
+*.temp
+
+# Cookie files and local state (never commit)
+cookie/
+*.cookie
+.downloader_state.json
+
+# Validation artifacts
+.validation/
+
+# OS / Editor
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/
+
+# Secrets
+.env
+*secret*

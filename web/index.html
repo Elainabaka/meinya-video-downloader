@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Meinya Video · ElainaBaka</title>
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+  <div class="scene" aria-hidden="true"></div>
+  <div class="veil" aria-hidden="true"></div>
+  <main class="app-shell">
+    <header class="topbar">
+      <img class="wordmark" src="../assets/Logo%20Elainabaka.png" alt="ElainaBaka" />
+      <div class="top-actions">
+        <span class="status-pill"><i id="statusDot"></i><span id="statusText">Sẵn sàng</span></span>
+        <button id="cookieBtn" class="ghost-btn cookie-btn"><i id="cookieDot"></i>Cookie YouTube</button>
+        <button id="openOutputTop" class="ghost-btn">Mở thư mục lưu</button>
+      </div>
+    </header>
+
+    <div id="cookieModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="cookieTitle">
+      <section class="modal-card glass">
+        <div class="card-head">
+          <div>
+            <span class="mini-label">YOUTUBE PREMIUM</span>
+            <h2 id="cookieTitle">Cập nhật cookie</h2>
+          </div>
+          <button id="cookieClose" class="ghost-btn" aria-label="Đóng">✕</button>
+        </div>
+        <p class="modal-copy">Mở <b>music.youtube.com</b> trong cửa sổ ẩn danh, đăng nhập tài khoản Premium, bấm copy cookie ở extension rồi dán vào đây. Xong thì đóng cửa sổ ẩn danh (không đăng xuất) để cookie dùng được lâu.</p>
+        <div id="cookieState" class="cookie-state">Đang đọc trạng thái…</div>
+        <textarea id="cookieInput" spellcheck="false" autocomplete="off" placeholder="# Netscape HTTP Cookie File&#10;.youtube.com	TRUE	/	TRUE	…"></textarea>
+        <div class="modal-actions">
+          <button id="cookieCheck" class="ghost-btn">Kiểm tra Premium</button>
+          <button id="cookieSave" class="download-btn modal-save"><span><b>Lưu &amp; kiểm tra</b></span><i>✓</i></button>
+        </div>
+      </section>
+    </div>
+
+    <section class="layout">
+      <aside class="story-panel">
+        <div class="eyebrow">MEINYA MEDIA</div>
+        <h1>Tải video.<br><em>Gọn thôi.</em></h1>
+        <p>Dán link, chọn chất lượng rồi để app lo phần còn lại.</p>
+        <div class="trust-row">
+          <span>Không quảng cáo</span><span>Không ghi đè mặc định</span><span>Có kiểm tra file</span>
+        </div>
+      </aside>
+
+      <section class="download-card glass">
+        <div class="card-head">
+          <div>
+            <span class="mini-label">VIDEO DOWNLOADER</span>
+            <h2>Một link, một file sạch.</h2>
+          </div>
+          <span class="version">v0.2</span>
+        </div>
+
+        <label class="url-field" for="urlInput">
+          <span class="link-icon">↗</span>
+          <input id="urlInput" type="url" spellcheck="false" autocomplete="off" placeholder="Dán link YouTube, Facebook, TikTok…" />
+          <button id="pasteBtn" type="button">Dán</button>
+        </label>
+        <div class="url-actions">
+          <span id="urlHint"></span>
+          <button id="inspectBtn" class="text-btn">Kiểm tra link</button>
+        </div>
+
+        <article id="mediaCard" class="media-card hidden">
+          <div class="thumb-wrap">
+            <img id="thumbnail" alt="Thumbnail" />
+            <span id="duration" class="duration"></span>
+          </div>
+          <div class="media-copy">
+            <span id="source" class="source">MEDIA</span>
+            <strong id="mediaTitle">Tiêu đề video</strong>
+            <small id="mediaMeta">Đang đọc thông tin…</small>
+          </div>
+        </article>
+
+        <div class="section-label"><span>ĐỊNH DẠNG</span><span>Chọn một</span></div>
+        <div class="profile-grid" id="profiles">
+          <button class="profile" data-profile="best"><i>◇</i><b>Tốt nhất</b><small>Giữ chất lượng gốc</small></button>
+          <button class="profile active" data-profile="mp4-compatible"><i>▶</i><b>MP4</b><small>Dễ mở, dễ dùng</small></button>
+          <button class="profile" data-profile="audio"><i>♫</i><b>Âm thanh gốc</b><small>Chất lượng cao nhất</small></button>
+          <button class="profile" data-profile="audio-mp3"><i>♪</i><b>MP3</b><small>Dễ mở, nén lại</small></button>
+        </div>
+
+        <div class="settings-row">
+          <label class="select-field"><span>Chất lượng tối đa</span>
+            <select id="qualitySelect">
+              <option value="">Tốt nhất có thể</option>
+              <option value="2160">4K · 2160p</option>
+              <option value="1440">2K · 1440p</option>
+              <option value="1080" selected>Full HD · 1080p</option>
+              <option value="720">HD · 720p</option>
+              <option value="480">SD · 480p</option>
+            </select>
+          </label>
+          <button id="outputBtn" class="folder-field">
+            <span>Thư mục lưu</span><b id="outputPath">Đang tải…</b><i>›</i>
+          </button>
+        </div>
+
+        <div id="progressBox" class="progress-box hidden">
+          <div class="progress-copy"><span id="progressText">Đang tải…</span><b id="progressPct">0%</b></div>
+          <div class="progress-track"><div id="progressBar"></div></div>
+          <div class="progress-foot"><span id="progressStats">Đang kết nối</span><button id="cancelBtn">Hủy</button></div>
+        </div>
+
+        <button id="downloadBtn" class="download-btn">
+          <span><b>Tải xuống</b><small id="downloadSub">MP4 · tối đa 1080p</small></span>
+          <i>↓</i>
+        </button>
+
+        <div id="resultCard" class="result-card hidden">
+          <div class="result-icon">✓</div>
+          <div><b id="resultTitle">Đã tải xong</b><small id="resultPath"></small></div>
+          <button id="openResult">Mở thư mục</button>
+        </div>
+      </section>
+    </section>
+  </main>
+  <div id="toastHost" class="toast-host"></div>
+  <script src="app.js"></script>
+</body>
+</html>
