@@ -1,4 +1,4 @@
-# Video Downloader
+# Meinya Video Downloader
 
 App desktop (Windows) tải một video hoặc tách âm thanh bằng [yt-dlp](https://github.com/yt-dlp/yt-dlp). Sau khi tải, `ffprobe` kiểm tra file cuối cùng; chỉ báo thành công khi file đọc được.
 
