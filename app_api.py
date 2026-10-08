@@ -8,6 +8,7 @@ from pathlib import Path
 
 import webview
 
+from video_downloader import features
 from video_downloader.models import DownloadError, ProgressEvent
 from video_downloader.service import VideoDownloader
 
@@ -30,10 +31,16 @@ class DownloaderAPI:
         self._lock = threading.Lock()
         self._cancel = threading.Event()
         self._job = self._idle_job()
+        self._feature_lock = threading.Lock()
+        self._feature_job = self._idle_feature_job()
 
     @staticmethod
     def _idle_job():
         return {"running": False, "stage": "idle", "message": "Sẵn sàng", "percent": 0, "result": None}
+
+    @staticmethod
+    def _idle_feature_job():
+        return {"running": False, "message": "", "percent": 0, "done": False, "error": None}
 
     def bind_window(self, window):
         self._window = window
@@ -109,7 +116,41 @@ class DownloaderAPI:
             self._save_state()
         return str(result or "")
 
+    def features_status(self):
+        return {"ok": True, "ffmpeg": features.trang_thai(), "info": features.thong_tin()}
+
+    def install_ffmpeg(self):
+        with self._feature_lock:
+            if self._feature_job.get("running"):
+                return {"ok": False, "error": "Đang cài ffmpeg."}
+            if features.ffmpeg_co():
+                return {"ok": False, "error": "ffmpeg đã có sẵn."}
+            self._feature_job = {"running": True, "message": "Đang chuẩn bị…", "percent": 2, "done": False, "error": None}
+
+        def on_step(stage: str, fraction: float):
+            with self._feature_lock:
+                self._feature_job.update(message=stage, percent=round(fraction * 100))
+
+        def worker():
+            try:
+                features.cai_ffmpeg(on_step)
+                with self._feature_lock:
+                    self._feature_job.update(running=False, done=True, percent=100, message="Đã cài xong ffmpeg.")
+            except Exception as exc:
+                with self._feature_lock:
+                    self._feature_job.update(running=False, error=str(exc) or type(exc).__name__,
+                                             message="Chưa cài được ffmpeg.")
+
+        threading.Thread(target=worker, name="meinya-video-feature", daemon=True).start()
+        return {"ok": True}
+
+    def feature_job_status(self):
+        with self._feature_lock:
+            return dict(self._feature_job)
+
     def start_download(self, payload: dict):
+        if not features.ffmpeg_co():
+            return {"ok": False, "need": "ffmpeg", "error": "Chưa có ffmpeg. Cài ffmpeg trước khi tải."}
         with self._lock:
             if self._job.get("running"):
                 return {"ok": False, "error": "Đang có một lượt tải khác."}

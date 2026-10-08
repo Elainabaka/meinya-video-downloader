@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const state = { profile: 'mp4-compatible', outputDir: '', media: null, running: false, timer: null };
+const state = { profile: 'mp4-compatible', outputDir: '', media: null, running: false, timer: null, ffmpeg: true, featInfo: null };
 let bound = false;
 let initialized = false;
 
@@ -58,9 +58,10 @@ function showMedia(media) {
   $('mediaMeta').textContent = [media.uploader, media.is_playlist ? `${media.entry_count || '?'} mục` : fmtDuration(media.duration)].filter(Boolean).join(' · ');
   $('duration').textContent = media.is_playlist ? 'PLAYLIST' : fmtDuration(media.duration);
   $('duration').classList.toggle('hidden', !$('duration').textContent);
+  $('thumbnail').classList.toggle('hidden', !media.thumbnail_url);   // nguồn không có ảnh: không hiện ô vỡ
   if (media.thumbnail_url) {
     $('thumbnail').src = media.thumbnail_url;
-    $('thumbnail').onerror = () => { $('thumbnail').removeAttribute('src'); };
+    $('thumbnail').onerror = () => { $('thumbnail').removeAttribute('src'); $('thumbnail').classList.add('hidden'); };
   }
 }
 async function inspectUrl(silent=false) {
@@ -85,6 +86,7 @@ async function inspectUrl(silent=false) {
 async function startDownload() {
   if (state.running) return;
   if (!state.outputDir) { toast('Hãy chọn thư mục lưu.', 'error'); return; }
+  if (!state.ffmpeg) { openFeatureModal(); return; }
   if (!state.media) {
     const ok = await inspectUrl(true);
     if (!ok) return;
@@ -99,7 +101,11 @@ async function startDownload() {
   $('progressBar').style.width = '1%'; $('progressPct').textContent = '1%';
   setRunning(true); setStatus('Đang tải…', 'busy');
   const started = await window.pywebview.api.start_download(payload);
-  if (!started.ok) { setRunning(false); setStatus('Không thể bắt đầu', 'error'); toast(started.error, 'error'); return; }
+  if (!started.ok) {
+    setRunning(false);
+    if (started.need === 'ffmpeg') { state.ffmpeg = false; setStatus('Thiếu ffmpeg', 'error'); openFeatureModal(); return; }
+    setStatus('Không thể bắt đầu', 'error'); toast(started.error, 'error'); return;
+  }
   state.timer = setInterval(pollJob, 350);
 }
 async function pollJob() {
@@ -211,6 +217,56 @@ async function openOutput() {
   const result = await window.pywebview.api.open_output();
   if (!result.ok) toast(result.error || 'Không mở được thư mục.', 'error');
 }
+// ---------------------------------------------------------------- tính năng tải khi cần (ffmpeg)
+let featTimer = null;
+async function loadFeatures() {
+  try {
+    const response = await window.pywebview.api.features_status();
+    if (response.ok) { state.ffmpeg = response.ffmpeg.co; state.featInfo = response.info; }
+  } catch (error) { state.ffmpeg = true; }   // không đọc được trạng thái: giữ hành vi cũ
+}
+function openFeatureModal() {
+  const info = state.featInfo || {};
+  $('featTitle').textContent = `Cần ${info.ten || 'ffmpeg'}`;
+  $('featText').textContent = `Tính năng này cần tải thêm: ${info.dung_luong || 'vài trăm MB'}. Nguồn: ${info.nguon || 'winget'}. Giấy phép: ${info.giay_phep || 'xem nguồn'}. Tải về dùng không?`;
+  $('featMo').textContent = info.mo_ta || '';
+  $('featBarWrap').classList.add('hidden'); $('featStage').classList.add('hidden'); $('featErr').classList.add('hidden');
+  $('featGo').disabled = false; $('featLater').disabled = false;
+  $('featModal').classList.remove('hidden');
+  $('featGo').focus();
+}
+function closeFeatureModal() {
+  $('featModal').classList.add('hidden');
+}
+function showFeatureError(text) {
+  $('featErr').textContent = `Chưa cài được (${text}). Tính năng vẫn tắt, app vẫn dùng bình thường.`;
+  $('featErr').classList.remove('hidden');
+  $('featGo').disabled = false; $('featLater').disabled = false;
+}
+async function startFeatureInstall() {
+  $('featGo').disabled = true; $('featLater').disabled = true;
+  $('featErr').classList.add('hidden');
+  $('featBarWrap').classList.remove('hidden'); $('featStage').classList.remove('hidden');
+  $('featBar').style.width = '2%'; $('featStage').querySelector('span').textContent = 'Đang gửi yêu cầu…';
+  const started = await window.pywebview.api.install_ffmpeg();
+  if (!started.ok) { showFeatureError(started.error); return; }
+  featTimer = setInterval(pollFeature, 500);
+}
+async function pollFeature() {
+  try {
+    const job = await window.pywebview.api.feature_job_status();
+    $('featBar').style.width = `${Math.max(0, Math.min(100, Number(job.percent) || 0))}%`;
+    $('featStage').querySelector('span').textContent = job.message || 'Đang cài…';
+    if (job.running) return;
+    clearInterval(featTimer); featTimer = null;
+    if (!job.done) { showFeatureError(job.error || 'lỗi không rõ'); return; }
+    state.ffmpeg = true;
+    closeFeatureModal();
+    toast('Đã cài xong ffmpeg. Tiếp tục tải.');
+    await startDownload();
+  } catch (error) { clearInterval(featTimer); featTimer = null; showFeatureError(String(error)); }
+}
+
 function bind() {
   if (bound) return;
   bound = true;
@@ -231,6 +287,8 @@ function bind() {
   $('cookieModal').addEventListener('click', event => { if (event.target === $('cookieModal')) closeCookieModal(); });
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('cookieModal').classList.contains('hidden')) closeCookieModal(); });
   $('cookieSave').addEventListener('click', saveCookies);
+  $('featGo').addEventListener('click', startFeatureInstall);
+  $('featLater').addEventListener('click', closeFeatureModal);
   $('cookieCheck').addEventListener('click', checkPremium);
   $('pasteBtn').addEventListener('click', async () => {
     try { $('urlInput').value = await navigator.clipboard.readText(); $('urlInput').focus(); }
@@ -252,6 +310,7 @@ async function init() {
     $('outputPath').textContent = shortPath(state.outputDir); $('outputPath').title = state.outputDir;
     syncDownloadCopy(); setStatus('Sẵn sàng');
     refreshCookie().catch(() => {});
+    loadFeatures();
   } catch (error) { setStatus('Không nối được backend', 'error'); toast(String(error), 'error'); }
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, {once:true});
